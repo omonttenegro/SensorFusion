@@ -67,6 +67,16 @@ static void issue_measure_request(struct info_container *info, struct buffers *b
 
 void main_args(int argc, char *argv[], struct info_container *info)
 {
+    if (info->n_sensors <= 0 || info->n_servers <= 0 || info->buffers_size <= 0) {
+        fprintf(stderr, "Invalid arguments\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (info->buffers_size < info->n_sensors) {
+        fprintf(stderr, "buffers_size must be >= n_sensors\n");
+        exit(EXIT_FAILURE);
+    }
+    
     if (argc != 4) {
         fprintf(stderr, "Usage: %s n_sensors n_servers buff_size\n", argv[0]);
         exit(1);

@@ -31,9 +31,9 @@ int launch_process(enum process_type process_type, int process_id, struct info_c
                 break;
             default:
                 fprintf(stderr, "Invalid process type\n");
-                return -1;
+                exit(EXIT_FAILURE);
         }
-        return status;
+        exit(status);
     }
     
     else{

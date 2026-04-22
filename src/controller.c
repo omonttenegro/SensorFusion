@@ -2,21 +2,26 @@
 #include "controller.h"
 #include "memory.h"
 #include "random_measurement.h"
+#include <unistd.h>
 
 int execute_controller(int controller_id, struct info_container *info, struct buffers *buffs){
     MeasurementInfo m;
-    while (!(*info->terminate)) {
 
+    while (!(*info->terminate)) {
         controller_receive_measurement(&m, controller_id, info, buffs);
 
-        if (m.m_id != -1) {
-            controller_process_measurement(&m, controller_id, info);
-            controller_send_measurement(&m, info, buffs);
-            return 0;
+        if (m.m_id == -1) {
+            usleep(1000);
+            continue;
         }
+
+        controller_process_measurement(&m, controller_id, info);
+        controller_send_measurement(&m, info, buffs);
     }
-    return -1;
+
+    return 0;
 }
+
 void controller_receive_measurement(MeasurementInfo *m, int controller_id, struct info_container *info, struct buffers *buffs){
     read_sensor_controller_buffer(buffs->buff_sensors_controllers, controller_id, info->buffers_size, m);
 }
