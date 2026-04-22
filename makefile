@@ -1,23 +1,30 @@
-SOestimate: main.o process.o memory.o sensor.o controller.o server.o
-	gcc main.o process.o memory.o sensor.o controller.o server.o -o bin/SOestimate
+TARGET = bin/SOestimate
 
-main.o: src/main.c inc/main.h
-	gcc -c src/main.c -o obj/main.o
+CC = gcc
+CFLAGS = -Wall -Iinc
 
-process.o: src/process.c inc/process.h
-	gcc -c src/process.c -o obj/process.o
+OBJ = obj/main.o obj/process.o obj/memory.o obj/sensor.o obj/controller.o obj/server.o
 
-memory.o: src/memory.c inc/memory.h
-	gcc -c src/memory.c -o obj/memory.o
+$(TARGET): $(OBJ)
+	$(CC) $(OBJ) -o $(TARGET)
 
-sensor.o: src/sensor.c inc/sensor.h
-	gcc -c src/sensor.c -o obj/sensor.o
+obj/main.o: src/main.c inc/main.h
+	$(CC) $(CFLAGS) -c src/main.c -o obj/main.o
 
-controller.o: src/controller.c inc/controller.h
-	gcc -c src/controller.c -o obj/controller.o
+obj/process.o: src/process.c inc/process.h
+	$(CC) $(CFLAGS) -c src/process.c -o obj/process.o
 
-server.o: src/server.c inc/server.h
-	gcc -c src/server.c -o obj/server.o
+obj/memory.o: src/memory.c inc/memory.h
+	$(CC) $(CFLAGS) -c src/memory.c -o obj/memory.o
+
+obj/sensor.o: src/sensor.c inc/sensor.h
+	$(CC) $(CFLAGS) -c src/sensor.c -o obj/sensor.o
+
+obj/controller.o: src/controller.c inc/controller.h
+	$(CC) $(CFLAGS) -c src/controller.c -o obj/controller.o
+
+obj/server.o: src/server.c inc/server.h
+	$(CC) $(CFLAGS) -c src/server.c -o obj/server.o
 
 clean:
-	rm -f -I obj/*.o bin/SOestimate
+	rm -f obj/*.o $(TARGET)
