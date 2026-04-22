@@ -2,98 +2,57 @@
 #include "process.h"
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-static int parse_positive_int_or_fail(const char *text, const char *name)
-{
-    char *endptr = NULL;
-    long value;
-
-    errno = 0;
-    value = strtol(text, &endptr, 10);
-
-    if (errno != 0 || endptr == text || *endptr != '\0' || value <= 0) {
-        fprintf(stderr, "Invalid %s: %s\n", name, text);
-        exit(1);
-    }
-
-    if (value > 2147483647L) {
-        fprintf(stderr, "%s is too large: %s\n", name, text);
-        exit(1);
-    }
-
-    return (int)value;
-}
-
-static int parse_positive_int_safe(const char *text, int *value)
-{
-    char *endptr = NULL;
-    long parsed;
-
-    errno = 0;
-    parsed = strtol(text, &endptr, 10);
-
-    if (errno != 0 || endptr == text || *endptr != '\0' || parsed <= 0 || parsed > 2147483647L) {
-        return 0;
-    }
-
-    *value = (int)parsed;
-    return 1;
-}
-
-static void issue_measure_request(struct info_container *info, struct buffers *buffs, int m_id)
-{
-    MeasurementInfo req;
-
-    req.state = REQUEST;
-    req.m_id = m_id;
-    req.sensor_id = -1;
-    req.controller_id = -1;
-    req.value = 0.0;
-    req.counter_sensors = info->n_sensors;
-    req.counter_servers = 0;
-
-    while (*(info->terminate) == 0) {
-        if (write_main_sensors_buffer(buffs->buff_main_sensors, info->buffers_size, &req) == 1) {
-            printf("Measurement cycle %d requested.\n", m_id);
-            return;
-        }
-        usleep(1000);
-    }
-}
-
 void main_args(int argc, char *argv[], struct info_container *info)
 {
-    if (info->n_sensors <= 0 || info->n_servers <= 0 || info->buffers_size <= 0) {
-        fprintf(stderr, "Invalid arguments\n");
+    char *endptr;
+    long value;
+
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s n_sensors n_servers buffers_size\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    errno = 0;
+    endptr = NULL;
+    value = strtol(argv[1], &endptr, 10);
+    if (errno != 0 || endptr == argv[1] || *endptr != '\0' || value <= 0 || value > INT_MAX) {
+        fprintf(stderr, "Invalid n_sensors\n");
+        exit(EXIT_FAILURE);
+    }
+    info->n_sensors = (int)value;
+
+    errno = 0;
+    endptr = NULL;
+    value = strtol(argv[2], &endptr, 10);
+    if (errno != 0 || endptr == argv[2] || *endptr != '\0' || value <= 0 || value > INT_MAX) {
+        fprintf(stderr, "Invalid n_servers\n");
+        exit(EXIT_FAILURE);
+    }
+    info->n_servers = (int)value;
+
+    errno = 0;
+    endptr = NULL;
+    value = strtol(argv[3], &endptr, 10);
+    if (errno != 0 || endptr == argv[3] || *endptr != '\0' || value <= 0 || value > INT_MAX) {
+        fprintf(stderr, "Invalid buffers_size\n");
+        exit(EXIT_FAILURE);
+    }
+    info->buffers_size = (int)value;
+
+    if (info->buffers_size < 2) {
+        fprintf(stderr, "buffers_size must be at least 2\n");
         exit(EXIT_FAILURE);
     }
 
     if (info->buffers_size < info->n_sensors) {
         fprintf(stderr, "buffers_size must be >= n_sensors\n");
         exit(EXIT_FAILURE);
-    }
-    
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s n_sensors n_servers buff_size\n", argv[0]);
-        exit(1);
-    }
-
-    info->n_sensors = parse_positive_int_or_fail(argv[1], "n_sensors");
-    info->n_servers = parse_positive_int_or_fail(argv[2], "n_servers");
-    info->buffers_size = parse_positive_int_or_fail(argv[3], "buff_size");
-
-    if (info->buffers_size < 2) {
-        fprintf(stderr, "buff_size must be at least 2.\n");
-        exit(1);
-    }
-
-    if (info->buffers_size < info->n_sensors) {
-        fprintf(stderr, "buff_size must be at least n_sensors with the current RA-buffer implementation.\n");
-        exit(1);
     }
 
     info->sensors_pids = NULL;
@@ -119,8 +78,8 @@ void create_dynamic_memory_structs(struct info_container *info, struct buffers *
     if (info->sensors_pids == NULL || info->controllers_pids == NULL ||
         info->servers_pids == NULL || buffs->buff_main_sensors == NULL ||
         buffs->buff_sensors_controllers == NULL || buffs->buff_controllers_servers == NULL) {
-        fprintf(stderr, "Failed to allocate dynamic memory.\n");
-        exit(1);
+        fprintf(stderr, "Failed to allocate dynamic memory\n");
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -147,8 +106,10 @@ void create_shared_memory_structs(struct info_container *info, struct buffers *b
                                                           (int)(sizeof(int) * info->n_sensors));
     info->num_estimates = create_shared_memory(ID_SHM_SERVERS_PROCESSED,
                                                (int)(sizeof(int) * info->n_servers));
-    info->total_measurements = create_shared_memory(ID_SHM_TOTAL_MEASUREMENTS, (int)sizeof(int));
-    info->terminate = create_shared_memory(ID_SHM_TERMINATE, (int)sizeof(int));
+    info->total_measurements = create_shared_memory(ID_SHM_TOTAL_MEASUREMENTS,
+                                                    (int)sizeof(int));
+    info->terminate = create_shared_memory(ID_SHM_TERMINATE,
+                                           (int)sizeof(int));
 
     *(info->terminate) = 0;
     *(info->total_measurements) = 0;
@@ -156,19 +117,13 @@ void create_shared_memory_structs(struct info_container *info, struct buffers *b
 
 void destroy_dynamic_memory_structs(struct info_container *info, struct buffers *buffs)
 {
-    if (info != NULL) {
-        deallocate_dynamic_memory(info->sensors_pids);
-        deallocate_dynamic_memory(info->controllers_pids);
-        deallocate_dynamic_memory(info->servers_pids);
-        deallocate_dynamic_memory(info);
-    }
+    deallocate_dynamic_memory(info->sensors_pids);
+    deallocate_dynamic_memory(info->controllers_pids);
+    deallocate_dynamic_memory(info->servers_pids);
 
-    if (buffs != NULL) {
-        deallocate_dynamic_memory(buffs->buff_main_sensors);
-        deallocate_dynamic_memory(buffs->buff_sensors_controllers);
-        deallocate_dynamic_memory(buffs->buff_controllers_servers);
-        deallocate_dynamic_memory(buffs);
-    }
+    deallocate_dynamic_memory(buffs->buff_main_sensors);
+    deallocate_dynamic_memory(buffs->buff_sensors_controllers);
+    deallocate_dynamic_memory(buffs->buff_controllers_servers);
 }
 
 void destroy_shared_memory_structs(struct info_container *info, struct buffers *buffs)
@@ -218,158 +173,43 @@ void create_processes(struct info_container *info, struct buffers *buffs)
     for (i = 0; i < info->n_sensors; i++) {
         info->sensors_pids[i] = launch_process(SENSOR_PROCESS, i, info, buffs);
         if (info->sensors_pids[i] < 0) {
-            fprintf(stderr, "Failed to create sensor %d.\n", i);
-            exit(1);
+            fprintf(stderr, "Failed to create sensor %d\n", i);
+            exit(EXIT_FAILURE);
         }
     }
 
     for (i = 0; i < info->n_sensors; i++) {
         info->controllers_pids[i] = launch_process(CONTROLLER_PROCESS, i, info, buffs);
         if (info->controllers_pids[i] < 0) {
-            fprintf(stderr, "Failed to create controller %d.\n", i);
-            exit(1);
+            fprintf(stderr, "Failed to create controller %d\n", i);
+            exit(EXIT_FAILURE);
         }
     }
 
     for (i = 0; i < info->n_servers; i++) {
         info->servers_pids[i] = launch_process(SERVER_PROCESS, i, info, buffs);
         if (info->servers_pids[i] < 0) {
-            fprintf(stderr, "Failed to create server %d.\n", i);
-            exit(1);
+            fprintf(stderr, "Failed to create server %d\n", i);
+            exit(EXIT_FAILURE);
         }
     }
-}
-
-void read_estimate(struct info_container *info, int m_id)
-{
-    (void)info;
-
-    if (m_id <= 0) {
-        printf("Invalid measurement cycle.\n");
-        return;
-    }
-
-    printf("The current code does not persist estimates, so cycle %d cannot be retrieved yet.\n", m_id);
-}
-
-void print_stat(struct info_container *info)
-{
-    int i;
-
-    printf("\n=== SOestimate status ===\n");
-    printf("n_sensors: %d\n", info->n_sensors);
-    printf("n_servers: %d\n", info->n_servers);
-    printf("buffers_size: %d\n", info->buffers_size);
-    printf("total_measurements: %d\n", *(info->total_measurements));
-    printf("terminate: %d\n", *(info->terminate));
-
-    printf("\nSensors:\n");
-    for (i = 0; i < info->n_sensors; i++) {
-        printf("  sensor[%d]: pid=%d generated=%d invalid=%d\n",
-               i,
-               info->sensors_pids[i],
-               info->num_generated_measurements[i],
-               info->num_invalid_measurements[i]);
-    }
-
-    printf("\nControllers:\n");
-    for (i = 0; i < info->n_sensors; i++) {
-        printf("  controller[%d]: pid=%d\n", i, info->controllers_pids[i]);
-    }
-
-    printf("\nServers:\n");
-    for (i = 0; i < info->n_servers; i++) {
-        printf("  server[%d]: pid=%d estimates=%d\n",
-               i,
-               info->servers_pids[i],
-               info->num_estimates[i]);
-    }
-
-    printf("========================\n\n");
-}
-
-void help(void)
-{
-    printf("Available commands:\n");
-    printf("  measure          - starts a new measurement cycle\n");
-    printf("  read <m_id>      - tries to read the estimate of cycle <m_id>\n");
-    printf("  stat             - shows current system state\n");
-    printf("  help             - shows this help message\n");
-    printf("  end              - terminates the system\n");
-}
-
-void write_final_statistics(struct info_container *info)
-{
-    int i;
-
-    printf("\n=== Final statistics ===\n");
-    printf("Total generated measurements: %d\n", *(info->total_measurements));
-
-    for (i = 0; i < info->n_sensors; i++) {
-        printf("Sensor %d -> generated: %d | invalid: %d\n",
-               i,
-               info->num_generated_measurements[i],
-               info->num_invalid_measurements[i]);
-    }
-
-    for (i = 0; i < info->n_servers; i++) {
-        printf("Server %d -> estimates: %d\n", i, info->num_estimates[i]);
-    }
-
-    printf("========================\n");
-}
-
-void wait_processes(struct info_container *info)
-{
-    int i;
-
-    for (i = 0; i < info->n_sensors; i++) {
-        if (info->sensors_pids[i] > 0) {
-            wait_process(info->sensors_pids[i]);
-        }
-    }
-
-    for (i = 0; i < info->n_sensors; i++) {
-        if (info->controllers_pids[i] > 0) {
-            wait_process(info->controllers_pids[i]);
-        }
-    }
-
-    for (i = 0; i < info->n_servers; i++) {
-        if (info->servers_pids[i] > 0) {
-            wait_process(info->servers_pids[i]);
-        }
-    }
-}
-
-void end_execution(struct info_container *info, struct buffers *buffs)
-{
-    (void)buffs;
-
-    if (*(info->terminate) == 0) {
-        *(info->terminate) = 1;
-    }
-
-    wait_processes(info);
-    write_final_statistics(info);
 }
 
 void user_interaction(struct info_container *info, struct buffers *buffs)
 {
     char line[128];
+    char *command;
+    char *arg;
     int next_measurement_id = 1;
 
     help();
 
     while (*(info->terminate) == 0) {
-        char *command;
-        char *arg;
-
         printf(">> ");
         fflush(stdout);
 
         if (fgets(line, sizeof(line), stdin) == NULL) {
-            printf("\nEnd of input.\n");
+            printf("\n");
             end_execution(info, buffs);
             return;
         }
@@ -382,21 +222,46 @@ void user_interaction(struct info_container *info, struct buffers *buffs)
         }
 
         if (strcmp(command, "measure") == 0) {
-            issue_measure_request(info, buffs, next_measurement_id);
-            next_measurement_id++;
+            MeasurementInfo req;
+
+            req.state = REQUEST;
+            req.m_id = next_measurement_id;
+            req.sensor_id = -1;
+            req.controller_id = -1;
+            req.value = 0.0;
+            req.counter_sensors = info->n_sensors;
+            req.counter_servers = 0;
+
+            while (*(info->terminate) == 0) {
+                if (write_main_sensors_buffer(buffs->buff_main_sensors,
+                                              info->buffers_size,
+                                              &req) == 1) {
+                    printf("Measurement cycle %d requested\n", next_measurement_id);
+                    next_measurement_id++;
+                    break;
+                }
+                usleep(1000);
+            }
         }
         else if (strcmp(command, "read") == 0) {
-            int m_id;
+            char *endptr;
+            long value;
+
             arg = strtok(NULL, " \t");
             if (arg == NULL) {
                 printf("Usage: read <m_id>\n");
+                continue;
             }
-            else if (!parse_positive_int_safe(arg, &m_id)) {
-                printf("Invalid m_id.\n");
+
+            errno = 0;
+            endptr = NULL;
+            value = strtol(arg, &endptr, 10);
+            if (errno != 0 || endptr == arg || *endptr != '\0' || value <= 0 || value > INT_MAX) {
+                printf("Invalid measurement id\n");
+                continue;
             }
-            else {
-                read_estimate(info, m_id);
-            }
+
+            read_estimate(info, (int)value);
         }
         else if (strcmp(command, "stat") == 0) {
             print_stat(info);
@@ -409,28 +274,119 @@ void user_interaction(struct info_container *info, struct buffers *buffs)
             return;
         }
         else {
-            printf("Unknown command. Type 'help' to see the available commands.\n");
+            printf("Unknown command\n");
         }
     }
 }
 
-int main(int argc, char *argv[])
+void write_final_statistics(struct info_container *info)
 {
-    struct info_container *info = allocate_dynamic_memory((int)sizeof(struct info_container));
-    struct buffers *buffs = allocate_dynamic_memory((int)sizeof(struct buffers));
+    int i;
 
-    if (info == NULL || buffs == NULL) {
-        fprintf(stderr, "Failed to allocate main structures.\n");
-        return 1;
+    printf("Total measurements: %d\n", *(info->total_measurements));
+
+    for (i = 0; i < info->n_sensors; i++) {
+        printf("Sensor %d: generated=%d invalid=%d\n",
+               i,
+               info->num_generated_measurements[i],
+               info->num_invalid_measurements[i]);
     }
 
-    main_args(argc, argv, info);
-    create_dynamic_memory_structs(info, buffs);
-    create_shared_memory_structs(info, buffs);
-    create_processes(info, buffs);
-    user_interaction(info, buffs);
-    destroy_shared_memory_structs(info, buffs);
-    destroy_dynamic_memory_structs(info, buffs);
+    for (i = 0; i < info->n_servers; i++) {
+        printf("Server %d: estimates=%d\n", i, info->num_estimates[i]);
+    }
+}
+
+void end_execution(struct info_container *info, struct buffers *buffs)
+{
+    (void)buffs;
+
+    *(info->terminate) = 1;
+    wait_processes(info);
+    write_final_statistics(info);
+}
+
+void wait_processes(struct info_container *info)
+{
+    int i;
+
+    for (i = 0; i < info->n_sensors; i++) {
+        wait_process(info->sensors_pids[i]);
+    }
+
+    for (i = 0; i < info->n_sensors; i++) {
+        wait_process(info->controllers_pids[i]);
+    }
+
+    for (i = 0; i < info->n_servers; i++) {
+        wait_process(info->servers_pids[i]);
+    }
+}
+
+void read_estimate(struct info_container *info, int m_id)
+{
+    (void)info;
+
+    if (m_id <= 0) {
+        printf("Invalid measurement id\n");
+        return;
+    }
+
+    printf("Estimate reading is not available in the current implementation\n");
+}
+
+void print_stat(struct info_container *info)
+{
+    int i;
+
+    printf("n_sensors: %d\n", info->n_sensors);
+    printf("n_servers: %d\n", info->n_servers);
+    printf("buffers_size: %d\n", info->buffers_size);
+    printf("total_measurements: %d\n", *(info->total_measurements));
+    printf("terminate: %d\n", *(info->terminate));
+
+    for (i = 0; i < info->n_sensors; i++) {
+        printf("Sensor %d: pid=%d generated=%d invalid=%d\n",
+               i,
+               info->sensors_pids[i],
+               info->num_generated_measurements[i],
+               info->num_invalid_measurements[i]);
+    }
+
+    for (i = 0; i < info->n_sensors; i++) {
+        printf("Controller %d: pid=%d\n", i, info->controllers_pids[i]);
+    }
+
+    for (i = 0; i < info->n_servers; i++) {
+        printf("Server %d: pid=%d estimates=%d\n",
+               i,
+               info->servers_pids[i],
+               info->num_estimates[i]);
+    }
+}
+
+void help(void)
+{
+    printf("Commands:\n");
+    printf("measure\n");
+    printf("read <m_id>\n");
+    printf("stat\n");
+    printf("help\n");
+    printf("end\n");
+}
+
+int main(int argc, char *argv[])
+{
+    struct info_container info;
+    struct buffers buffs;
+
+    main_args(argc, argv, &info);
+    create_dynamic_memory_structs(&info, &buffs);
+    create_shared_memory_structs(&info, &buffs);
+    create_processes(&info, &buffs);
+    user_interaction(&info, &buffs);
+    destroy_shared_memory_structs(&info, &buffs);
+    destroy_dynamic_memory_structs(&info, &buffs);
 
     return 0;
 }
