@@ -6,7 +6,10 @@
 #include <unistd.h>    
 #include <sys/mman.h>   
 #include <sys/stat.h>   
-#include <fcntl.h>  
+#include <fcntl.h> 
+#include "main.h"
+#include "memory.h"
+
 
 
 typedef enum State
