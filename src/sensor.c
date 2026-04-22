@@ -1,7 +1,3 @@
-#ifndef SENSOR_H_GUARD
-#define SENSOR_H_GUARD
-
-
 #include "memory.h"
 #include "main.h"
 #include "random_measurement.h"
@@ -89,4 +85,3 @@ int execute_sensor(int sensor_id, struct info_container *info, struct buffers *b
 
     return 0;
 }
-#endif
