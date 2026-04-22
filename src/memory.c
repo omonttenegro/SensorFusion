@@ -1,4 +1,9 @@
-
+/*
+ * Grupo 20
+ * André Montenegro, Nº63755
+ * Francisco Costa, Nº63691
+ * Nicholas Antunes, Nº63783
+ */
 #include <stdio.h>  
 #include <stdlib.h>   
 #include <string.h>   
@@ -198,4 +203,3 @@ void read_controller_servers_buffer(struct ra_buffer *buffer, int buffer_size, i
         buffer->ptrs[expected_controller_id] = 0;
     }
 }
-

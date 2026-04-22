@@ -1,3 +1,9 @@
+/*
+ * Grupo 20
+ * André Montenegro, Nº63755
+ * Francisco Costa, Nº63691
+ * Nicholas Antunes, Nº63783
+ */
 #ifndef MAIN_H_GUARD
 #define MAIN_H_GUARD
 
