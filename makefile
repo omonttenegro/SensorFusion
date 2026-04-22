@@ -6,7 +6,7 @@ CFLAGS = -Wall -Iinc
 OBJ = obj/main.o obj/process.o obj/memory.o obj/sensor.o obj/controller.o obj/server.o obj/random_measurement.o
 
 $(TARGET): $(OBJ)
-	$(CC) $(OBJ) -o $(TARGET)
+	$(CC) $(OBJ) -o $(TARGET) -lm
 
 obj/main.o: src/main.c inc/main.h
 	$(CC) $(CFLAGS) -c src/main.c -o obj/main.o
