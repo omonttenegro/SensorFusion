@@ -1,9 +1,4 @@
 #include "server.h"
-
-#ifndef __linux__
-#error "server.c is Linux-only"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
