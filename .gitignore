@@ -1,2 +1,10 @@
+# macOS
+.DS_Store
+
+# build artifacts
 obj/*.o
 bin/SOestimate
+bin/SOestimate_profs
+
+# optional
+*.out
