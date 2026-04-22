@@ -44,7 +44,7 @@ int execute_sensor(int sensor_id, struct info_container *info, struct buffers *b
  * info provides runtime configuration and terminate flag.
  * buffs provides access to shared buffers.
  */
-void sensor_receive_request(MeasurementInfo *req, int expected_m_id, struct info_container *info, struct buffers *buffs);{
+void sensor_receive_request(MeasurementInfo *req, int expected_m_id, struct info_container *info, struct buffers *buffs){
     read_main_sensors_buffer(
         buffs->buff_main_sensors,
         info->buffers_size,

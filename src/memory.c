@@ -161,7 +161,7 @@ void read_main_sensors_buffer(struct circ_buffer *buffer, int buffer_size, int e
         req->m_id = -1;
         return;
     }
-    //ver se é o exepctado 
+    //ver se é o esperado 
     if (buffer->buffer[out].m_id != expected_m_id){
         req->m_id = -1;
         return;
