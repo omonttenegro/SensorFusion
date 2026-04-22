@@ -1,6 +1,10 @@
 #include "memory.h"
 #include "main.h"
 #include "random_measurement.h"
+#include "sensor.h"
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h> 
 
 
 /* Function that reads the next request from the main->sensors circular buffer.
