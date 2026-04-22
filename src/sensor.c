@@ -89,5 +89,4 @@ int execute_sensor(int sensor_id, struct info_container *info, struct buffers *b
 
     return 0;
 }
-
 #endif

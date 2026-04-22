@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "controller.h"
-#include<random_measurement.h>
+#include "memory.h"
+#include "random_measurement.h"
 
 int execute_controller(int controller_id, struct info_container *info, struct buffers *buffs){
     MeasurementInfo m;
