@@ -8,7 +8,7 @@ TARGET = bin/SOestimate
 CC = gcc
 CFLAGS = -Wall -Iinc
 
-OBJ = obj/main.o obj/process.o obj/memory.o obj/sensor.o obj/controller.o obj/server.o obj/random_measurement.o
+OBJ = obj/main.o obj/process.o obj/memory.o obj/ctime.o obj/synchronization.o obj/sensor.o obj/controller.o obj/server.o obj/random_measurement.o
 
 $(TARGET): $(OBJ)
 	$(CC) $(OBJ) -o $(TARGET) -lm
@@ -21,6 +21,12 @@ obj/process.o: src/process.c inc/process.h
 
 obj/memory.o: src/memory.c inc/memory.h
 	$(CC) $(CFLAGS) -c src/memory.c -o obj/memory.o
+
+obj/ctime.o: src/ctime.c inc/ctime.h
+	$(CC) $(CFLAGS) -c src/ctime.c -o obj/ctime.o
+
+obj/synchronization.o: src/synchronization.c inc/synchronization.h
+	$(CC) $(CFLAGS) -c src/synchronization.c -o obj/synchronization.o
 
 obj/sensor.o: src/sensor.c inc/sensor.h
 	$(CC) $(CFLAGS) -c src/sensor.c -o obj/sensor.o

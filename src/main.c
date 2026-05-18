@@ -1,4 +1,4 @@
-7/*
+/*
  * Grupo 20
  * André Montenegro, Nº63755
  * Francisco Costa, Nº63691
@@ -6,13 +6,14 @@
  */
 #include "main.h"
 #include "process.h"
-
+#include "ctime.h"
+#include "csettings.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-void main_args(int argc, char *argv[], struct info_container *info){
+void main_args(int argc, char *argv[], struct info_container *info) {
     if (argc != 3) {
         printf("Usage: %s args.txt settings.txt\n", argv[0]);
         exit(1);
@@ -24,9 +25,14 @@ void main_args(int argc, char *argv[], struct info_container *info){
         exit(1);
     }
 
-    info->n_sensors = fread_int(fl);
-    info->n_servers = fread_int(fl);
-    info->buffers_size = fread_int(fl);
+    if (fscanf(fl, "%d %d %d",
+               &info->n_sensors,
+               &info->n_servers,
+               &info->buffers_size) != 3) {
+        printf("Failed to read args file\n");
+        fclose(fl);
+        exit(1);
+    }
 
     fclose(fl);
 
@@ -80,6 +86,7 @@ void main_args(int argc, char *argv[], struct info_container *info){
 
     info->sems = NULL;
 }
+
 
 void create_dynamic_memory_structs(struct info_container *info, struct buffers *buffs){
     //são locais pois só o main precisa de saber os pids para depois fazer wait(pid)
@@ -167,10 +174,9 @@ void user_interaction(struct info_container *info, struct buffers *buffs){
 
         linha[strcspn(linha, "\n")] = '\0';
 
-        init_timestamps(&m.change_time);
-
         if (strcmp(linha, "measure") == 0) {
             MeasurementInfo m;
+            init_timestamps(&m.change_time);
             m.state = REQUEST;
             m.m_id = id;
             m.sensor_id = -1;
@@ -183,7 +189,7 @@ void user_interaction(struct info_container *info, struct buffers *buffs){
             sem_wait(info->sems->main_sensors->free_space);
             sem_wait(info->sems->main_sensors->mutex);
 
-            write_main_sensors_buffer(buffs->buff_main_sensors, info->buffers_size, &req);
+            write_main_sensors_buffer(buffs->buff_main_sensors, info->buffers_size, &m);
 
             sem_post(info->sems->main_sensors->mutex);
 
@@ -290,11 +296,11 @@ int main(int argc, char *argv[]){
     main_args(argc, argv, &info);
     create_dynamic_memory_structs(&info, &buffs);
     create_shared_memory_structs(&info, &buffs);
-    info->sems = create_all_semaphores(info->buffers_size);
+    info.sems = create_all_semaphores(info.buffers_size);
     create_processes(&info, &buffs);
     user_interaction(&info, &buffs);
-    destroy_all_semaphores(info->sems);
-    destroy_shared_memory_structs(. &info, &buffs);
+    destroy_all_semaphores(info.sems);
+    destroy_shared_memory_structs(&info, &buffs);
     destroy_dynamic_memory_structs(&info, &buffs);
 
     return 0;

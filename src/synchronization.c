@@ -71,7 +71,7 @@ struct semaphores *create_all_semaphores(unsigned value){
 
     sems->main_sensors = create_buffer_semaphores((int)value, SEM_MAIN_SENSORS_UNREAD, SEM_MAIN_SENSORS_FREE, SEM_MAIN_SENSORS_MUTEX);
 
-    sems->sensors_controllers = create_buffer_semaphores((int)value, SEM_SENSORS_CONTROLLERS_UNREAD, SEM_SENSORS_CONTROLLERS_FREE,SEM_SENSORS_CONTROLLERS_MUTEX);
+    sems->sensors_controllers = create_buffer_semaphores((int)value, SEM_SENSORS_CONTROLLERS_UNREAD, SEM_SENSORS_CONTROLLERS_FREE, SEM_SENSORS_CONTROLLERS_MUTEX);
 
     sems->controllers_servers = create_buffer_semaphores((int)value, SEM_CONTROLLERS_SERVERS_UNREAD, SEM_CONTROLLERS_SERVERS_FREE, SEM_CONTROLLERS_SERVERS_MUTEX);
 
@@ -98,63 +98,34 @@ void destroy_all_semaphores(struct semaphores *sems){
     free(sems);
 }
 
+static void print_buffer_semaphores(const char *name, struct buffer_semaphores *buffer_sems)
+{
+    int value;
+
+    printf("%s:\n", name);
+
+    if (buffer_sems->unread != NULL && sem_getvalue(buffer_sems->unread, &value) != -1)
+        printf("  unread: %d\n", value);
+    else
+        printf("  unread: unavailable\n");
+
+    if (buffer_sems->free_space != NULL && sem_getvalue(buffer_sems->free_space, &value) != -1)
+        printf("  free: %d\n", value);
+    else
+        printf("  free: unavailable\n");
+
+    if (buffer_sems->mutex != NULL && sem_getvalue(buffer_sems->mutex, &value) != -1)
+        printf("  mutex: %d\n", value);
+    else
+        printf("  mutex: unavailable\n");
+}
+
 void print_all_semaphores(struct semaphores *sems){
     int value;
 
-    //Main_sensor
-    printf("Main -> Sensors:\n");
-
-    if (sems->main_sensors->unread != NULL && sem_getvalue(sems->main_sensors->unread, &value) != -1)
-        printf("  unread: %d\n", value);
-    else
-        printf("  unread: unavailable\n");
-
-    if (sems->main_sensors->free_space != NULL && sem_getvalue(sems->main_sensors->free_space, &value) != -1)
-        printf("  free: %d\n", value);
-    else
-        printf("  free: unavailable\n");
-
-    if (sems->main_sensors->mutex != NULL && sem_getvalue(sems->main_sensors->mutex, &value) != -1)
-        printf("  mutex: %d\n", value);
-    else
-        printf("  mutex: unavailable\n");
-
-    //Sensor_controller
-    printf("Sensors -> Controllers:\n");
-
-    if (sems->sensors_controllers->unread != NULL && sem_getvalue(sems->sensors_controllers->unread, &value) != -1)
-        printf("  unread: %d\n", value);
-    else
-        printf("  unread: unavailable\n");
-
-    if (sems->sensors_controllers->free_space != NULL && sem_getvalue(sems->sensors_controllers->free_space, &value) != -1)
-        printf("  free: %d\n", value);
-    else
-        printf("  free: unavailable\n");
-
-    if (sems->sensors_controllers->mutex != NULL && sem_getvalue(sems->sensors_controllers->mutex, &value) != -1)
-        printf("  mutex: %d\n", value);
-    else
-        printf("  mutex: unavailable\n");
-
-    //Controller_server
-    printf("Controllers -> Servers:\n");
-
-    if (sems->controllers_servers->unread != NULL && sem_getvalue(sems->controllers_servers->unread, &value) != -1)
-        printf("  unread: %d\n", value);
-    else
-        printf("  unread: unavailable\n");
-
-    if (sems->controllers_servers->free_space != NULL && sem_getvalue(sems->controllers_servers->free_space, &value) != -1)
-        printf("  free: %d\n", value);
-    else
-        printf("  free: unavailable\n");
-
-    if (sems->controllers_servers->mutex != NULL && sem_getvalue(sems->controllers_servers->mutex, &value) != -1)
-        printf("  mutex: %d\n", value);
-    else
-        printf("  mutex: unavailable\n");
-
+    print_buffer_semaphores("Main -> Sensors", sems->main_sensors);
+    print_buffer_semaphores("Sensors -> Controllers", sems->sensors_controllers);
+    print_buffer_semaphores("Controllers -> Servers", sems->controllers_servers);
 
     if (sems->terminate_mutex != NULL && sem_getvalue(sems->terminate_mutex, &value) != -1)
         printf("Terminate mutex: %d\n", value);

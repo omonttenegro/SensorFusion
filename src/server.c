@@ -5,6 +5,7 @@
  * Nicholas Antunes, Nº63783
  */
 #include "server.h"
+#include "ctime.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -111,7 +112,7 @@ int server_process_measurement(MeasurementInfo *m, int server_id, struct info_co
         (*valid_count)++;
     }
 
-    set_server_time(&m.change_time);
+    set_server_time(&m->change_time);
     processed_in_cycle++;
 
     if (processed_in_cycle >= info->n_sensors) {

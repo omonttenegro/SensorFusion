@@ -6,6 +6,7 @@
  */
 #include "memory.h"
 #include "main.h"
+#include "ctime.h"
 #include "random_measurement.h"
 #include "sensor.h"
 #include <unistd.h>
@@ -45,7 +46,7 @@ void sensor_process_request(MeasurementInfo *m, int sensor_id, struct info_conta
     m->controller_id = -1;
     m->value = get_measurement();
     m->counter_servers = info->n_servers;
-    init_timestamps(&m.change_time);
+    init_timestamps(&m->change_time);
     if (info->num_generated_measurements != NULL) {
         info->num_generated_measurements[sensor_id]++;
     }
