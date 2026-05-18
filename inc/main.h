@@ -1,13 +1,10 @@
-/*
- * Grupo 20
- * André Montenegro, Nº63755
- * Francisco Costa, Nº63691
- * Nicholas Antunes, Nº63783
- */
 #ifndef MAIN_H_GUARD
 #define MAIN_H_GUARD
 
 #include "memory.h"
+#include "synchronization.h"
+
+#define MAX_FILENAME 100
 
 /* NOTE:
  * Header files can be replaced during evaluation.
@@ -42,7 +39,18 @@ struct info_container
 
     int *total_measurements; // total number of generated measurements in the system
     int *terminate;          // termination flag (1 means the system must stop)
+
+    int *last_logged_id;     // last measurement result written to the log file
+    struct semaphores *sems; // semaphores used to synchronize shared buffers
+
+    char log_filename[MAX_FILENAME];        // log file read from settings file
+    char statistics_filename[MAX_FILENAME]; // statistics file read from settings file
+    unsigned int period;                    // alarm period read from settings file
 };
+
+/* Global pointers used by signal handling code to trigger shutdown. */
+extern struct info_container *info;
+extern struct buffers *buffs;
 
 /*
  * Function that reads and validates command-line arguments.

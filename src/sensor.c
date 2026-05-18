@@ -17,7 +17,20 @@
  * buffs provides access to shared buffers.
  */
 void sensor_receive_request(MeasurementInfo *req, int expected_m_id, struct info_container *info, struct buffers *buffs){
-    read_main_sensors_buffer(buffs->buff_main_sensors, info->buffers_size, expected_m_id, req);
+    struct circ_buffer *buffer = buffs->buff_main_sensors;
+
+    sem_wait(info->sems->main_sensors->unread);
+    sem_wait(info->sems->main_sensors->mutex);
+
+    int old_out = buffer->ptrs->out;
+
+    read_main_sensors_buffer(buffer, info->buffers_size, expected_m_id, req );
+
+    if (req->m_id != -1 && buffer->buffer[old_out].counter_sensors == 0) {
+        sem_post(info->sems->main_sensors->free_space);
+    }
+
+    sem_post(info->sems->main_sensors->mutex);
 }
 
 /* Function that creates one measurement from a received request.
@@ -32,7 +45,7 @@ void sensor_process_request(MeasurementInfo *m, int sensor_id, struct info_conta
     m->controller_id = -1;
     m->value = get_measurement();
     m->counter_servers = info->n_servers;
-
+    init_timestamps(&m.change_time);
     if (info->num_generated_measurements != NULL) {
         info->num_generated_measurements[sensor_id]++;
     }
@@ -49,14 +62,27 @@ void sensor_process_request(MeasurementInfo *m, int sensor_id, struct info_conta
  */
 void sensor_send_measurement(MeasurementInfo *m, struct info_container *info, struct buffers *buffs)
 {
-    while (*(info->terminate) == 0) {
-        int success = write_sensor_controller_buffer(buffs->buff_sensors_controllers,info->buffers_size, m);
+    sem_wait(info->sems->sensors_controllers->free_space);
 
-        if (success) {
-            return;
-        }
-        
-        usleep(1000);
+    if (*(info->terminate) != 0) {
+        sem_post(info->sems->sensors_controllers->free_space);
+        return;
+    }
+
+    sem_wait(info->sems->sensors_controllers->mutex);
+
+    int success = write_sensor_controller_buffer(
+        buffs->buff_sensors_controllers,
+        info->buffers_size,
+        m
+    );
+
+    sem_post(info->sems->sensors_controllers->mutex);
+
+    if (success) {
+        sem_post(info->sems->sensors_controllers->unread);
+    } else {
+        sem_post(info->sems->sensors_controllers->free_space);
     }
 }
 

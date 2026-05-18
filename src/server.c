@@ -33,6 +33,8 @@ int execute_server(int server_id, struct info_container *info, struct buffers *b
             received_flags[m.controller_id] = 1;
         }
 
+        //Se a medição for válida, soma o valor à estimativa.
+        //Verifica se já recebeu todas as medições daquele ciclo. 
         if (server_process_measurement(&m, server_id, info, &estimate, &valid_count) == 1) {
             server_print_estimate(server_id, expected_m_id, estimate, valid_count);
 
@@ -53,28 +55,46 @@ int execute_server(int server_id, struct info_container *info, struct buffers *b
     return 0;
 }
 
-void read_expected_cycle_measurement(MeasurementInfo *m, int expected_m_id, const int *received_flags, struct info_container *info, struct buffers *buffs) {
+//procurar no buffer até encontrar um measurement com o m_id esperado
+void read_expected_cycle_measurement(MeasurementInfo *m, int expected_m_id, const int *received_flags, struct info_container *info, struct buffers *buffs){
     m->m_id = -1;
+
+    sem_wait(info->sems->controllers_servers->unread);
+
+    if (*(info->terminate) != 0) {
+        sem_post(info->sems->controllers_servers->unread);
+        return;
+    }
+
+    sem_wait(info->sems->controllers_servers->mutex);
 
     for (int i = 0; i < info->n_sensors; i++) {
         if (received_flags[i] != 0) {
             continue;
         }
 
-        read_controller_servers_buffer(
-            buffs->buff_controllers_servers,
-            info->buffers_size,
-            expected_m_id,
-            i,
-            m
-        );
+        read_controller_servers_buffer(buffs->buff_controllers_servers, info->buffers_size, expected_m_id, i, m);
 
         if (m->m_id != -1) {
-            return;
+            break;
         }
+    }
+
+    if (m->m_id != -1) {
+        if (m->counter_servers == 0) {
+            sem_post(info->sems->controllers_servers->free_space);
+        }
+    }
+
+    sem_post(info->sems->controllers_servers->mutex);
+
+    if (m->m_id == -1) {
+        sem_post(info->sems->controllers_servers->unread);
     }
 }
 
+
+//primeiro vê se já mudou a ronda e atualiza-a, depois acrescenta o valor do measurment à media e acrescenta o numero de measurments validos, no final se já estiverem todos os measurment lidos deste cycle faz a media final e restaura as variaveis necessarias 
 int server_process_measurement(MeasurementInfo *m, int server_id, struct info_container *info, double *estimate, int *valid_count) {
     static int processed_in_cycle = 0;
     static int tracked_cycle = -1;
@@ -91,6 +111,7 @@ int server_process_measurement(MeasurementInfo *m, int server_id, struct info_co
         (*valid_count)++;
     }
 
+    set_server_time(&m.change_time);
     processed_in_cycle++;
 
     if (processed_in_cycle >= info->n_sensors) {
