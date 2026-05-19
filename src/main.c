@@ -20,77 +20,7 @@ static struct info_container *global_info;
 static struct buffers *global_buffers;
 
 void main_args(int argc, char *argv[], struct info_container *info) {
-    if (argc != 3) {
-        printf("Usage: %s args.txt settings.txt\n", argv[0]);
-        exit(1);
-    }
-
-    FILE *fl = fopen(argv[1], "r");
-    if (fl == NULL) {
-        printf("Failed to open args file %s\n", argv[1]);
-        exit(1);
-    }
-
-    if (fscanf(fl, "%d %d %d",
-               &info->n_sensors,
-               &info->n_servers,
-               &info->buffers_size) != 3) {
-        printf("Failed to read args file\n");
-        fclose(fl);
-        exit(1);
-    }
-
-    fclose(fl);
-
-    if (info->n_sensors <= 0 || info->n_servers <= 0 || info->buffers_size <= 0) {
-        printf("Invalid arguments\n");
-        exit(1);
-    }
-
-    if (info->buffers_size < info->n_sensors) {
-        printf("buffers_size must be >= n_sensors\n");
-        exit(1);
-    }
-
-    FILE *fl2 = fopen(argv[2], "r");
-    if (fl2 == NULL) {
-        printf("Failed to open settings file %s\n", argv[2]);
-        exit(1);
-    }
-
-    if (fscanf(fl2, "%99s", info->log_filename) != 1) {
-        printf("Failed to read log filename\n");
-        fclose(fl2);
-        exit(1);
-    }
-
-    if (fscanf(fl2, "%99s", info->statistics_filename) != 1) {
-        printf("Failed to read statistics filename\n");
-        fclose(fl2);
-        exit(1);
-    }
-
-    if (fscanf(fl2, "%u", &info->period) != 1) {
-        printf("Failed to read period\n");
-        fclose(fl2);
-        exit(1);
-    }
-
-    fclose(fl2);
-
-    info->sensors_pids = NULL;
-    info->controllers_pids = NULL;
-    info->servers_pids = NULL;
-
-    info->num_generated_measurements = NULL;
-    info->num_invalid_measurements = NULL;
-    info->num_estimates = NULL;
-
-    info->total_measurements = NULL;
-    info->terminate = NULL;
-    info->last_logged_id = NULL;
-
-    info->sems = NULL;
+    read_settings(argc, argv, info);
 }
 
 
