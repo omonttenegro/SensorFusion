@@ -4,6 +4,8 @@
  * Francisco Costa, Nº63691
  * Nicholas Antunes, Nº63783
  */
+
+#define MAX_MEASUREMENTS 10000;
 #include "main.h"
 #include "process.h"
 #include "ctime.h"
@@ -12,6 +14,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+MeasurementInfo *measurement_history;
+static struct info_container *global_info;
+static struct buffers *global_buffers;
 
 void main_args(int argc, char *argv[], struct info_container *info) {
     if (argc != 3) {
@@ -114,6 +120,8 @@ void create_shared_memory_structs(struct info_container *info, struct buffers *b
     info->num_estimates = create_shared_memory(ID_SHM_SERVERS_PROCESSED, sizeof(int) * info->n_servers);
     info->total_measurements = create_shared_memory(ID_SHM_TOTAL_MEASUREMENTS, sizeof(int));
     info->terminate = create_shared_memory(ID_SHM_TERMINATE, sizeof(int));
+    measurement_history = create_shared_memory("SHM_MEASUREMENT_HISTORY", sizeof(MeasurementInfo)* info->buffers_size);
+
 }
 
 void destroy_dynamic_memory_structs(struct info_container *info, struct buffers *buffs){
@@ -141,6 +149,8 @@ void destroy_shared_memory_structs(struct info_container *info, struct buffers *
     destroy_shared_memory(ID_SHM_SERVERS_PROCESSED, info->num_estimates, sizeof(int) * info->n_servers);
     destroy_shared_memory(ID_SHM_TOTAL_MEASUREMENTS, info->total_measurements, sizeof(int));
     destroy_shared_memory(ID_SHM_TERMINATE, info->terminate, sizeof(int));
+    destroy_shared_memory("SHM_MEASUREMENT_HISTORY", measurement_history, sizeof(MeasurementInfo) * info->buffers_size);
+
 }
 
 void create_processes(struct info_container *info, struct buffers *buffs){
@@ -185,10 +195,10 @@ void user_interaction(struct info_container *info, struct buffers *buffs){
             m.counter_sensors = info->n_sensors;
             m.counter_servers = 0;
             set_main_time(&m.change_time);
-            
+            measurement_history[id-1] = m;
             sem_wait(info->sems->main_sensors->free_space);
             sem_wait(info->sems->main_sensors->mutex);
-
+            
             write_main_sensors_buffer(buffs->buff_main_sensors, info->buffers_size, &m);
 
             sem_post(info->sems->main_sensors->mutex);
