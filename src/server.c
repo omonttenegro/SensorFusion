@@ -5,10 +5,11 @@
  * Nicholas Antunes, Nº63783
  */
 #include "server.h"
+#include "ctime.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+extern MeasurementInfo *measurement_history;
 int execute_server(int server_id, struct info_container *info, struct buffers *buffs) {
     int expected_m_id = 1;
     double estimate = 0.0;
@@ -111,7 +112,8 @@ int server_process_measurement(MeasurementInfo *m, int server_id, struct info_co
         (*valid_count)++;
     }
 
-    set_server_time(&m.change_time);
+    set_server_time(&m->change_time);
+    measurement_history[m->m_id - 1] = *m;
     processed_in_cycle++;
 
     if (processed_in_cycle >= info->n_sensors) {

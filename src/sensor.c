@@ -6,10 +6,11 @@
  */
 #include "memory.h"
 #include "main.h"
+#include "ctime.h"
 #include "random_measurement.h"
 #include "sensor.h"
 #include <unistd.h>
-
+extern MeasurementInfo *measurement_history;
 
 /* Function that reads the next request from the main->sensors circular buffer.
  * req receives the MeasurementInfo request data, or m_id = -1 when no request exists.
@@ -45,7 +46,8 @@ void sensor_process_request(MeasurementInfo *m, int sensor_id, struct info_conta
     m->controller_id = -1;
     m->value = get_measurement();
     m->counter_servers = info->n_servers;
-    init_timestamps(&m.change_time);
+    set_sensor_time(&m->change_time);
+    measurement_history[m->m_id - 1] = *m;
     if (info->num_generated_measurements != NULL) {
         info->num_generated_measurements[sensor_id]++;
     }

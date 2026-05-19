@@ -1,18 +1,25 @@
-7/*
+/*
  * Grupo 20
  * André Montenegro, Nº63755
  * Francisco Costa, Nº63691
  * Nicholas Antunes, Nº63783
  */
+
+#define MAX_MEASUREMENTS 10000;
 #include "main.h"
 #include "process.h"
-
+#include "ctime.h"
+#include "csettings.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-void main_args(int argc, char *argv[], struct info_container *info){
+MeasurementInfo *measurement_history;
+static struct info_container *global_info;
+static struct buffers *global_buffers;
+
+void main_args(int argc, char *argv[], struct info_container *info) {
     if (argc != 3) {
         printf("Usage: %s args.txt settings.txt\n", argv[0]);
         exit(1);
@@ -24,9 +31,14 @@ void main_args(int argc, char *argv[], struct info_container *info){
         exit(1);
     }
 
-    info->n_sensors = fread_int(fl);
-    info->n_servers = fread_int(fl);
-    info->buffers_size = fread_int(fl);
+    if (fscanf(fl, "%d %d %d",
+               &info->n_sensors,
+               &info->n_servers,
+               &info->buffers_size) != 3) {
+        printf("Failed to read args file\n");
+        fclose(fl);
+        exit(1);
+    }
 
     fclose(fl);
 
@@ -81,6 +93,7 @@ void main_args(int argc, char *argv[], struct info_container *info){
     info->sems = NULL;
 }
 
+
 void create_dynamic_memory_structs(struct info_container *info, struct buffers *buffs){
     //são locais pois só o main precisa de saber os pids para depois fazer wait(pid)
     info->sensors_pids = allocate_dynamic_memory(sizeof(int) * info->n_sensors);
@@ -107,6 +120,8 @@ void create_shared_memory_structs(struct info_container *info, struct buffers *b
     info->num_estimates = create_shared_memory(ID_SHM_SERVERS_PROCESSED, sizeof(int) * info->n_servers);
     info->total_measurements = create_shared_memory(ID_SHM_TOTAL_MEASUREMENTS, sizeof(int));
     info->terminate = create_shared_memory(ID_SHM_TERMINATE, sizeof(int));
+    measurement_history = create_shared_memory("SHM_MEASUREMENT_HISTORY", sizeof(MeasurementInfo)* info->buffers_size);
+
 }
 
 void destroy_dynamic_memory_structs(struct info_container *info, struct buffers *buffs){
@@ -134,6 +149,8 @@ void destroy_shared_memory_structs(struct info_container *info, struct buffers *
     destroy_shared_memory(ID_SHM_SERVERS_PROCESSED, info->num_estimates, sizeof(int) * info->n_servers);
     destroy_shared_memory(ID_SHM_TOTAL_MEASUREMENTS, info->total_measurements, sizeof(int));
     destroy_shared_memory(ID_SHM_TERMINATE, info->terminate, sizeof(int));
+    destroy_shared_memory("SHM_MEASUREMENT_HISTORY", measurement_history, sizeof(MeasurementInfo) * info->buffers_size);
+
 }
 
 void create_processes(struct info_container *info, struct buffers *buffs){
@@ -167,10 +184,9 @@ void user_interaction(struct info_container *info, struct buffers *buffs){
 
         linha[strcspn(linha, "\n")] = '\0';
 
-        init_timestamps(&m.change_time);
-
         if (strcmp(linha, "measure") == 0) {
             MeasurementInfo m;
+            init_timestamps(&m.change_time);
             m.state = REQUEST;
             m.m_id = id;
             m.sensor_id = -1;
@@ -179,11 +195,11 @@ void user_interaction(struct info_container *info, struct buffers *buffs){
             m.counter_sensors = info->n_sensors;
             m.counter_servers = 0;
             set_main_time(&m.change_time);
-            
+            measurement_history[id-1] = m;
             sem_wait(info->sems->main_sensors->free_space);
             sem_wait(info->sems->main_sensors->mutex);
-
-            write_main_sensors_buffer(buffs->buff_main_sensors, info->buffers_size, &req);
+            
+            write_main_sensors_buffer(buffs->buff_main_sensors, info->buffers_size, &m);
 
             sem_post(info->sems->main_sensors->mutex);
 
@@ -290,11 +306,11 @@ int main(int argc, char *argv[]){
     main_args(argc, argv, &info);
     create_dynamic_memory_structs(&info, &buffs);
     create_shared_memory_structs(&info, &buffs);
-    info->sems = create_all_semaphores(info->buffers_size);
+    info.sems = create_all_semaphores(info.buffers_size);
     create_processes(&info, &buffs);
     user_interaction(&info, &buffs);
-    destroy_all_semaphores(info->sems);
-    destroy_shared_memory_structs(. &info, &buffs);
+    destroy_all_semaphores(info.sems);
+    destroy_shared_memory_structs(&info, &buffs);
     destroy_dynamic_memory_structs(&info, &buffs);
 
     return 0;
