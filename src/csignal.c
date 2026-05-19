@@ -70,6 +70,7 @@ void print_measurement_status(struct info_container *info, struct buffers *buffe
         return;
     }
     long current_time = get_current_time_ms();
+    printf("Measurement status at %ld ms:\n", current_time);
      for(int i =0; i< *(info->total_measurements);i++){
         MeasurementInfo *m = &measurement_history[i];
         long elapsed_time;
@@ -81,4 +82,5 @@ void print_measurement_status(struct info_container *info, struct buffers *buffe
         }
         printf("%d %.3f \n", m->m_id, elapsed_time / 1000.0);
     }
+    printf("------------------------------\n");
 }
